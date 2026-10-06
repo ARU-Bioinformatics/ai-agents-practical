@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI agents for bioinformatics – from a prompt to an analysis you can repeat</title>
+<meta name="description" content="A browser-based practical: use a real AI assistant and a real AI agent to find a variant in sequencing reads – with fastp, minimap2, Bowtie 2, samtools and bcftools running in the browser – and make the analysis reproducible.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232b1f4d'/%3E%3Cpath d='M8 11l5 5-5 5M15 22h6' fill='none' stroke='%23c9b6f2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M22.5 6l1.1 3 3 1.1-3 1.1-1.1 3-1.1-3-3-1.1 3-1.1z' fill='%23ffd66b'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/vendor/codemirror/codemirror.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/terminal.css">
+<link rel="stylesheet" href="assets/css/agents.css">
+</head>
+<body data-page="agents" data-title="AI agents for bioinformatics">
+<div class="app">
+
+  <header class="topbar">
+    <a class="brand" href="#start" title="Start">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#2b1f4d"/><path d="M8 11l5 5-5 5M15 22h6" fill="none" stroke="#c9b6f2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M22.5 6l1.1 3 3 1.1-3 1.1-1.1 3-1.1-3-3-1.1 3-1.1z" fill="#ffd66b"/></svg>
+      <div>
+        <div class="brand-title">AI agents for bioinformatics</div>
+        <div class="brand-sub">From a prompt to an analysis you can repeat</div>
+      </div>
+    </a>
+    <div class="spacer"></div>
+    <div class="progress-wrap" title="Activities done and questions answered (saved in this browser)"><span class="progress-label">0% done</span><div class="progress"><i></i></div></div>
+    <button class="btn" id="answersBtn" type="button"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg><span>My answers</span></button>
+    <button class="btn" id="helpBtn" type="button" title="How this page works"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9a2.9 2.9 0 0 1 5.6 1c0 2-2.8 2.6-2.8 4M12 17.5h.01"/></svg><span>Help</span></button>
+  </header>
+
+  <div class="main">
+    <aside class="tut" aria-label="Instructions">
+      <nav class="ch-nav" aria-label="Chapters"></nav>
+<!--CHAPTERS-->
+<section class="chapter" id="start" data-num="0" data-title="Start here" data-bench="assistant">
+  <h1>AI agents for bioinformatics</h1>
+  <div class="meta-row"><span class="pill time">≈ 10 min</span></div>
+  <p class="lede">AI tools can now do bioinformatics for you: you say what you want, and an agent maps the reads and calls the variants. In this practical you use a real AI model in two ways – as an assistant that answers and as an agent that acts – on real sequencing reads, with real programs. Then you turn what the agent did into an analysis that anyone can repeat.</p>
+
+<h2 id="s-question">The question</h2>
+<p>The gene <i>CYP2C19</i> makes an enzyme that turns the anti-clotting drug clopidogrel into its active form. One common variant, <b><i>CYP2C19*2</i></b> (rs4244285, G&gt;A), stops the enzyme from being made, and people who carry it respond less well to the drug. Your question for today:</p>
+<blockquote class="quote">Which genotype does the sample NA12878 have at <i>CYP2C19*2</i>?</blockquote>
+<p>You have the sequencing reads of that sample and a reference sequence. In this data the variant is at <b>position 11,616</b> of the sequence called <code>human_CYP2C19</code>. You will first look at the data yourself, then answer the question twice – with an AI assistant, and with an AI agent – and in the end make the answer one that someone else can check.</p>
+
+<h2 id="s-tools">What is on this page</h2>
+<table class="table">
+<tr><th>Terminal</th><td>A Linux-like terminal. The programs are the real ones – fastp, minimap2, Bowtie 2, samtools, bcftools and the GNU text tools – compiled to run in your browser, on this computer. The data is small, so each program takes seconds.</td></tr>
+<tr><th>Files</th><td>Your folders, an editor for text files, and a viewer for reports.</td></tr>
+<tr><th>AI</th><td>A real AI model, in two roles: <b>Chat</b>, an assistant that answers questions, and <b>Agent</b>, which carries out a task itself.</td></tr>
+</table>
+
+<div class="callout concept">
+  <div class="co-t">Assistant or agent?</div>
+  <p>An <b>assistant</b> writes text. You ask, it answers; <i>you</i> run the commands and read what they print.</p>
+<p>An <b>agent</b> is the same kind of model in a loop: it writes a command, the command is run, the model reads what it printed and writes the next command – until it decides the task is done. You say what you want, not how.</p><div class="loopfig" role="img" aria-label="The agent's loop: the model writes a command, the page runs it in the terminal, the output goes back to the model; this repeats until the model writes its report.">
+  <div class="lf-box task"><b>Your task</b><span>in words</span></div>
+  <div class="lf-arrow">→</div>
+  <div class="lf-cycle">
+    <div class="lf-box model"><b>AI model</b><span>reads everything so far, writes the next command</span></div>
+    <div class="lf-arrows"><span>command ↓</span><span>↑ what it printed</span></div>
+    <div class="lf-box term"><b>Your terminal</b><span>the page runs the command</span></div>
+  </div>
+  <div class="lf-arrow">→</div>
+  <div class="lf-box report"><b>Report</b><span>when the model decides it is done</span></div>
+</div>
+</div>
+
+<div class="activity">
+  <div class="act-t">Connect the AI</div>
+  <ol class="steps">
+    <li data-task="s-open">Open the <b>AI</b> tab <button class="do showme" type="button" data-bench="assistant">show me</button> and read <b>What is sent, and where</b>.</li>
+    <li data-task="s-connect" data-auto="ai:connect ok=true" data-check="connected">Paste an API key and press <b>Connect</b>. Your lecturer will say which key to use: one that they hand out, or one of your own – for Google’s Gemini API you make one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (sign in, <i>Create API key</i>, copy it).</li>
+    <li data-task="s-help" data-auto="term:command name=help">In the <b>Terminal</b>, see which programs are there: <code>help</code> <button class="do showme" type="button" data-term="help">show me</button> A <i>show me</i> button only types the command – press <kbd>Enter</kbd> to run it.</li>
+  </ol>
+</div>
+
+<div class="callout warn">
+  <div class="co-t">Three rules for today – and for every day after</div>
+  <ol>
+<li><b>No personal or patient data in an AI tool.</b> What you type, and what the agent’s commands print, goes to the company that runs the model. Today’s data is a public reference sample, so that is fine.</li>
+<li><b>The result is yours.</b> An AI can be wrong and sound certain. Whatever you report, you must be able to show where it comes from.</li>
+<li><b>A key is a password.</b> Do not share it or put it in a file. This page keeps it in this browser tab only.</li>
+</ol>
+</div>
+
+<div class="callout info">
+  <div class="co-t">Good to know</div>
+  <ul>
+<li>A free key allows each model only a few requests per minute, and a limited number per day. The agent uses one request for each step.</li>
+<li>If a Gemini model is busy, over a limit or gives no answer, the page asks another one, and leaves the first alone for a while: an amber dot beside the model’s name at the top of the AI tab says so. Under each answer you can see which model replied.</li>
+<li>When no model can answer for the moment, the agent waits – a countdown is shown – and goes on by itself. If there is still no answer after three waits, the run ends with a message that says what each model said.</li>
+<li>Your work is kept in this browser. <b>My answers</b> (top right) downloads your answers; chapter 4 ends with a download of your analysis.</li>
+</ul>
+</div>
+
+<div class="q" data-q="s-q1">
+  <div class="q-text">Suppose an AI agent tells you: “NA12878 is heterozygous for <i>CYP2C19*2</i>.” What would you want to see before you put that sentence in a report?</div>
+  <div class="q-model"><p>The sentence is a claim. The evidence would be: the commands that were run, and the versions of the programs; the line of the variant file for that position – the genotype, its quality, how many reads cover the position and how many support each allele; how well the reads mapped; and that the analysis can be run again and gives the same answer. By the end of this practical you will have all of these.</p></div>
+</div>
+
+</section>
+
+<section class="chapter" id="look" data-num="1" data-title="Look first" data-bench="terminal" hidden>
+  <h1>Look before you delegate</h1>
+  <div class="meta-row"><span class="pill time">≈ 20 min</span></div>
+  <p class="lede">You cannot judge an agent’s work on data you have never looked at. So, before any AI: what is in the files, are they intact, how good are the reads, which programs are here? A few commands of your own.</p>
+
+<div class="activity">
+  <div class="act-t">The files</div>
+  <ol class="steps">
+    <li data-task="l-ls" data-auto="term:command line~README code=0">List the data: <code>cd ~ &amp;&amp; ls -l data</code> <button class="do showme" type="button" data-term="cd ~ &amp;&amp; ls -l data">show me</button> Then read what it is: <code>cat data/README.md</code> <button class="do showme" type="button" data-term="cat data/README.md">show me</button></li>
+    <li data-task="l-head" data-auto="term:command name=head code=0">Look at one read – four lines: a name, the bases, a plus sign, a quality for each base. <code>head -4 data/NA12878_R1.fastq</code> <button class="do showme" type="button" data-term="head -4 data/NA12878_R1.fastq">show me</button></li>
+    <li data-task="l-count" data-auto="term:command line~wc code=0">Count the reads of the first file: its lines, divided by four. <code>echo $(( $(wc -l &lt; data/NA12878_R1.fastq) / 4 ))</code> <button class="do showme" type="button" data-term="echo $(( $(wc -l &lt; data/NA12878_R1.fastq) / 4 ))">show me</button></li>
+    <li data-task="l-ref" data-auto="term:command name=grep code=0">The reference: which sequences does it have? <code>grep &#x27;&gt;&#x27; data/reference.fa</code> <button class="do showme" type="button" data-term="grep &#x27;&gt;&#x27; data/reference.fa">show me</button></li>
+  </ol>
+</div>
+
+<div class="q" data-q="l-q1" data-accept="^3[ ,.]?519( pairs?| read pairs?)?$" data-hint="count the lines of one file and divide by 4" data-placeholder="a number">
+  <div class="q-text">How many read pairs are there? (The second file has the same number of reads: read 1 and read 2 of each pair.)</div>
+  <div class="q-model"><p><b>3,519</b> pairs – 14,076 lines in each file, four lines per read. Each read is 76 bases long.</p></div>
+</div>
+
+<div class="activity">
+  <div class="act-t">Are the files what they should be?</div>
+  <ol class="steps">
+    <li data-task="l-md5" data-auto="term:command line~md5sum code=0">A <b>checksum</b> is a fingerprint of a file’s contents: change one byte and the checksum changes. The <code>data</code> folder has a list of the expected checksums, <code>MD5SUMS</code>; check the files against it: <code>(cd ~/data &amp;&amp; md5sum -c MD5SUMS)</code> <button class="do showme" type="button" data-term="(cd ~/data &amp;&amp; md5sum -c MD5SUMS)">show me</button> The brackets make the <code>cd</code> last for this one line only.</li>
+  </ol><p class='small muted'>Three times <code>OK</code>: these are exactly the files the practical was written for. You will use checksums again in chapter 4, to compare results.</p>
+</div>
+
+<div class="activity">
+  <div class="act-t">Quality control with fastp</div>
+  <ol class="steps">
+    <li data-task="l-fastp" data-auto="term:command name=fastp code=0">fastp measures the quality of the reads, removes poor reads and trims adapters. It writes the cleaned reads and two reports. <code>fastp -i data/NA12878_R1.fastq -I data/NA12878_R2.fastq -o trimmed_R1.fastq -O trimmed_R2.fastq -h fastp.html -j fastp.json</code> <button class="do showme" type="button" data-term="fastp -i data/NA12878_R1.fastq -I data/NA12878_R2.fastq -o trimmed_R1.fastq -O trimmed_R2.fastq -h fastp.html -j fastp.json">show me</button></li>
+    <li data-task="l-report" data-auto="editor:view name=fastp.html">Open the report: <code>open fastp.html</code> <button class="do showme" type="button" data-term="open fastp.html">show me</button> Read the <b>Summary</b>, then scroll to the quality curves: quality along the read, before and after filtering.</li>
+    <li data-task="l-json" data-auto="term:command name=jq code=0">The same numbers, for programs to read, are in the JSON report. <code>jq .filtering_result fastp.json</code> <button class="do showme" type="button" data-term="jq .filtering_result fastp.json">show me</button> <code>jq .summary.before_filtering fastp.json</code> <button class="do showme" type="button" data-term="jq .summary.before_filtering fastp.json">show me</button></li>
+  </ol>
+</div>
+
+<div class="q" data-q="l-q2" data-accept="^6[ ,.]?170" data-hint="look for passed_filter_reads" data-placeholder="a number">
+  <div class="q-text">How many of the 7,038 reads passed fastp’s filter?</div>
+  <div class="q-model"><p><b>6,170</b> (87.7 %). 864 reads failed for low quality and 4 for too many unknown bases (N); none was too short. Adapters were trimmed from 42 reads.</p></div>
+</div>
+
+<div class="q" data-q="l-q3">
+  <div class="q-text">fastp removed 868 reads – about one in eight. Are these bad data? What in the report helps you decide?</div>
+  <div class="q-model"><p>Not bad, but not new either. Before filtering, 82 % of the bases have a quality of at least 30 (one error in 1,000) and 90 % of at least 20; the curves show quality falling towards the end of the reads, more so in read 2 – usual for Illumina reads of this age. Only 42 reads carried adapter sequence, and the duplication rate is about 7 %. Nothing here says the data cannot answer the question; it does say that a careful analysis might use the filtered reads, and that a result should not hang on a few low-quality bases.</p></div>
+</div>
+
+<div class="activity">
+  <div class="act-t">Which programs, which versions?</div>
+  <ol class="steps">
+    <li data-task="l-versions" data-auto="term:command line~--version code=0"><code>fastp --version; minimap2 --version; bowtie2 --version | head -1; samtools --version | head -1; bcftools --version | head -1</code> <button class="do showme" type="button" data-term="fastp --version; minimap2 --version; bowtie2 --version | head -1; samtools --version | head -1; bcftools --version | head -1">show me</button></li>
+  </ol>
+</div>
+
+<div class="q" data-q="l-q4" data-type="mcq">
+  <div class="q-text">Why note the versions before any analysis is done?</div>
+  <div class="mcq"><label data-why="Newer is not the point – the point is to know exactly which one produced a result."><input type="radio"> Because newer versions are always better, and you should know if you are behind.</label><label data-correct data-why="Yes: defaults, models and bug fixes change between versions. “bcftools” is not a method; “bcftools 1.10” is."><input type="radio"> Because the same command can give a different result with another version – so a result is only described when the versions are.</label><label data-why="It helps the AI, but that is not why they belong in your notes."><input type="radio"> Because the AI needs them to answer.</label></div>
+</div>
+
+<div class="callout concept">
+  <div class="co-t">What you now know – and an agent does not, until it looks</div>
+  <p>3,519 pairs of 76-base reads; a reference with two sequences, <code>human_CYP2C19</code> (30,000 bases) and <code>human_CYP2C9</code> (26,000 bases); about one read in eight of low quality; and the programs at hand: fastp 0.20.1, minimap2 2.22, Bowtie 2 2.4.2, samtools 1.17, bcftools 1.10. With that you can tell whether what an AI says about this data makes sense.</p>
+</div>
+
+</section>
+
+<section class="chapter" id="assistant" data-num="2" data-title="The assistant" data-bench="assistant" hidden>
+  <h1>The assistant answers – you act</h1>
+  <div class="meta-row"><span class="pill time">≈ 20 min</span></div>
+  <p class="lede">An AI assistant is a language model that writes text; here, commands. It runs nothing, and it sees nothing of your files unless you show it. You are the one who acts – and the one who checks.</p>
+
+<div class="activity">
+  <div class="act-t">Ask for the mapping</div>
+  <ol class="steps">
+    <li data-task="a-ask" data-auto="ai:answer tab=chat">Make sure the terminal is in your home folder <button class="do showme" type="button" data-term="cd ~">cd ~</button>, then give the assistant this prompt – read it first: what does it tell the assistant, and what does it leave open?<div class="prompt-card"><div class="pc-head"><span class="pc-t">A prompt for the assistant</span><span class="grow"></span><button class="do ask" type="button" data-prompt="I have paired-end Illumina reads in data/NA12878_R1.fastq and data/NA12878_R2.fastq, and a reference in data/reference.fa. Give me the commands to map the reads with minimap2 and to make a sorted, indexed BAM file called mapped.bam. Say in a few words what each option does." data-tab="chat">Put it in the chat box</button></div><div class="pc-text">I have paired-end Illumina reads in data/NA12878_R1.fastq and data/NA12878_R2.fastq, and a reference in data/reference.fa. Give me the commands to map the reads with minimap2 and to make a sorted, indexed BAM file called mapped.bam. Say in a few words what each option does.</div></div>Press <b>Send</b>.</li>
+    <li data-task="a-run" data-auto="term:command name=samtools sub=index code=0" data-check="exists:mapped.bam.bai">Read the answer. Under each block of commands is a button, <b>Put command … in the terminal</b>: it types one command for you. Read the command, press <kbd>Enter</kbd>, read what it prints – then the next one, until <code>mapped.bam</code> and its index are there.</li>
+    <li data-task="a-flagstat" data-auto="term:command name=samtools sub=flagstat code=0">Check the result yourself: <code>samtools flagstat mapped.bam</code> <button class="do showme" type="button" data-term="samtools flagstat mapped.bam">show me</button></li>
+  </ol>
+</div>
+
+<div class="q" data-q="a-q1" data-accept="^9[5-8]([.,]\d+)?\s*%?$" data-hint="the line with “mapped (”" data-placeholder="a percentage">
+  <div class="q-text">What percentage of the reads were mapped? (If the assistant gave you other options than <code>-ax sr</code>, your number may differ a little.)</div>
+  <div class="q-model"><p>With <code>minimap2 -ax sr</code>: <b>96.86 %</b> – 6,817 of 7,038 reads; 94.77 % as proper pairs.</p></div>
+</div>
+
+<div class="activity">
+  <div class="act-t">Ask for the variants</div>
+  <ol class="steps">
+    <li data-task="a-ask2" data-check="exists:variants.vcf.gz"><div class="prompt-card"><div class="pc-head"><span class="pc-t">A prompt for the assistant</span><span class="grow"></span><button class="do ask" type="button" data-prompt="Now give me the commands to call the variants from mapped.bam with bcftools into a compressed, indexed file variants.vcf.gz, and a command that shows me the line for position 11616 of human_CYP2C19." data-tab="chat">Put it in the chat box</button></div><div class="pc-text">Now give me the commands to call the variants from mapped.bam with bcftools into a compressed, indexed file variants.vcf.gz, and a command that shows me the line for position 11616 of human_CYP2C19.</div></div>Send it, and run the commands as before, until <code>variants.vcf.gz</code> is there.</li>
+    <li data-task="a-err">If a command fails, do not guess: under the error message in the terminal press <b>✦ Ask the AI assistant about this error</b>. The command and its message go to the assistant. (No error? Good – tick this step.)</li>
+    <li data-task="a-site" data-auto="term:command line~11616 code=0">The line for the position should now be on your screen. If not: <code>bcftools view -H -r human_CYP2C19:11616 variants.vcf.gz</code> <button class="do showme" type="button" data-term="bcftools view -H -r human_CYP2C19:11616 variants.vcf.gz">show me</button></li>
+  </ol>
+</div>
+
+<div class="q" data-q="a-q2" data-accept="^0\s*[/|]\s*1$||het" data-hint="0 is the reference allele, 1 the alternative one" data-placeholder="for example 1/1">
+  <div class="q-text">Which genotype does NA12878 have at position 11,616? Write it as it stands in the last column of the line (before the colon).</div>
+  <div class="q-model"><p><b>0/1</b> – heterozygous: one copy of the reference allele G and one of the alternative allele A. NA12878 carries one <i>CYP2C19*2</i> allele.</p></div>
+</div>
+
+<div class="q" data-q="a-q3">
+  <div class="q-text">Read the whole line. What is the evidence for this genotype?</div>
+  <div class="q-model"><p>With minimap2 and bcftools’ default settings: the reference base is G, the alternative A; the quality of the call (QUAL) is 222, about as high as bcftools goes; 106 reads cover the position (DP). <code>DP4=40,4,46,2</code> counts the good-quality reads for each allele, forward and reverse: 44 for G and 48 for A – about half and half, as expected when one of the two chromosomes carries the variant. <code>GT:PL 0/1:255,0,255</code>: the heterozygous genotype is far more likely than either homozygous one.</p></div>
+</div>
+
+<div class="activity">
+  <div class="act-t">Find the assistant’s limits</div>
+  <ol class="steps">
+    <li data-task="a-count" data-auto="term:command line~wc code=0"><div class="prompt-card"><div class="pc-head"><span class="pc-t">A prompt for the assistant</span><span class="grow"></span><button class="do ask" type="button" data-prompt="How many variants are there in my file variants.vcf.gz?" data-tab="chat">Put it in the chat box</button></div><div class="pc-text">How many variants are there in my file variants.vcf.gz?</div></div>What does it answer? Then find out yourself: <code>bcftools view -H variants.vcf.gz | wc -l</code> <button class="do showme" type="button" data-term="bcftools view -H variants.vcf.gz | wc -l">show me</button></li>
+    <li data-task="a-bwa" data-auto="ai:ask text~bwa"><div class="prompt-card"><div class="pc-head"><span class="pc-t">A prompt for the assistant</span><span class="grow"></span><button class="do ask" type="button" data-prompt="Give me the bwa mem command to map these reads." data-tab="chat">Put it in the chat box</button></div><div class="pc-text">Give me the bwa mem command to map these reads.</div></div>What does it say?</li>
+  </ol>
+</div>
+
+<div class="callout info">
+  <div class="co-t">Why this assistant knows that bwa is not here</div>
+  <p>Before your first question, this page gave the model a description of the terminal: the programs and their versions, the data files, what is not installed. Such a text is called a <b>system prompt</b>; with every question the page also sends the name of your folder and of your files. A chatbot in another browser tab knows none of this. It would most likely give you a <code>bwa mem</code> command – correct in general, and useless here.</p>
+</div>
+
+<div class="q" data-q="a-q4">
+  <div class="q-text">Did the assistant tell you how many variants there are? What can it know about your file, and what not?</div>
+  <div class="q-model"><p>It knows the file’s <i>name</i> (sent with your question) and how such files are made. It cannot open the file, and it did not see what your commands printed – unless you pasted that in. So the honest answer is “I cannot see it; run this command”, and the right number is the one you counted: 60 with <code>minimap2 -ax sr</code> and bcftools’ defaults. If an assistant gives a number anyway, it has made one up that looks right. That is what people call a hallucination, and it is why a number from an AI is worth nothing until you have seen the output it comes from.</p></div>
+</div>
+
+<div class="q" data-q="a-q5" data-type="mcq">
+  <div class="q-text">Who did the analysis in this chapter?</div>
+  <div class="mcq"><label data-why="It wrote them. But it ran nothing, saw no result and checked nothing."><input type="radio"> The AI: it wrote every command.</label><label data-correct data-why="Yes. With an assistant, you are the loop: copy, run, read, ask again. And you answer for the result."><input type="radio"> You: the assistant wrote text; you ran the commands, read the results and decided what to believe.</label><label data-why="Programs run what they are given. Someone chose the commands and judged the output."><input type="radio"> Nobody – the programs did.</label></div>
+</div>
+
+</section>
+
+<section class="chapter" id="agent" data-num="3" data-title="The agent" data-bench="assistant" hidden>
+  <h1>Agents: four ways to let an AI act</h1>
+  <div class="meta-row"><span class="pill time">≈ 45 min</span></div>
+  <p class="lede">An agent runs the commands itself. That saves you the typing – and takes away the moments in which you would have looked. How much you still see and decide depends on how you let it work.</p>
+
+<p>An agent does what you did in the last chapter – run a command, read what it prints, decide what comes next – by itself. The page runs each of its commands in <i>your</i> terminal, in a folder of its own (<code>~/runs/1-approve</code>, <code>~/runs/2-plan</code> …) that starts with a copy of the data. While it works the terminal is locked; switch to the <b>Terminal</b> tab to watch.</p>
+<p>How much an agent may do without asking is a setting. There are four settings here. You will give the <b>same task</b> with each of them – with one of them twice, so five runs in all:</p>
+<div class="prompt-card"><div class="pc-head"><span class="pc-t">The task – the same for all five runs</span><span class="grow"></span><button class="do ask" type="button" data-prompt="Find the variants of sample NA12878. Map the paired reads data/NA12878_R1.fastq and data/NA12878_R2.fastq to data/reference.fa, call the variants and save them as variants.vcf.gz (compressed and indexed). Then tell me the genotype at position 11616 of human_CYP2C19, and the evidence for it." data-tab="agent">Put it in the agent’s box</button></div><div class="pc-text">Find the variants of sample NA12878. Map the paired reads data/NA12878_R1.fastq and data/NA12878_R2.fastq to data/reference.fa, call the variants and save them as variants.vcf.gz (compressed and indexed). Then tell me the genotype at position 11616 of human_CYP2C19, and the evidence for it.</div></div>
+
+<h2 id="g-ask">1 · Approve each step</h2>
+<div class="activity">
+  <div class="act-t">The agent proposes, you decide</div>
+  <ol class="steps">
+    <li data-task="g-ask-send" data-auto="agent:start mode=ask">In the AI tab choose <b>Agent</b> and <b>Approve each step</b>, put the task in the box <button class="do ask" type="button" data-prompt="Find the variants of sample NA12878. Map the paired reads data/NA12878_R1.fastq and data/NA12878_R2.fastq to data/reference.fa, call the variants and save them as variants.vcf.gz (compressed and indexed). Then tell me the genotype at position 11616 of human_CYP2C19, and the evidence for it." data-tab="agent" data-mode="ask">do it for me</button> and press <b>Send</b>.</li>
+    <li data-task="g-ask-run" data-auto="agent:approve choice=run || agent:approve choice=all">For every step, read what the agent wants to run <b>before</b> you allow it. Would you have done the same? Press <b>Run it</b> if so. (For a step that only writes a file the button reads <b>Write it</b>.)</li>
+    <li data-task="g-ask-change" data-auto="agent:approve choice=edited || agent:approve choice=refused">At least once, do not just agree. Change the command in its box before you press <b>Run it</b> – or press <b>Refuse</b>, with your reason in the line for the agent. The agent is told what you did; watch how it reacts.</li>
+    <li data-task="g-ask-done" data-check="runs:ask:1">Go on until the agent writes its report. (Tired of approving? <b>Run, and stop asking</b> lets it finish alone – many people press that button rather soon. If you do, remember at which step.)</li>
+    <li data-task="g-ask-check" data-auto="term:command line~11616 code=0 cwd~/runs/">Now check the report against the file. On the run’s card press <b>Go to its folder</b>, then <kbd>Enter</kbd> – the prompt of the terminal now shows the run’s folder, <code>~/runs/1-approve</code>. Then: <code>bcftools view -H -r human_CYP2C19:11616 variants.vcf.gz</code> <button class="do showme" type="button" data-term="bcftools view -H -r human_CYP2C19:11616 variants.vcf.gz">show me</button></li>
+  </ol>
+</div>
+
+<div class="q" data-q="g-q1">
+  <div class="q-text">Compare the agent’s report with the line you just printed. Is every statement in the report backed by something a command printed? Is there anything you cannot find in the outputs?</div>
+  <div class="q-model"><p>The genotype (0/1), the quality and the read counts should match the line exactly, if the agent printed that line and read it. Look for the rest in the record (<b>The record (RUN.md)</b> on the card): how many reads mapped, how many variants. Statements that no command printed – “high confidence”, “a poor metaboliser”, a clinical recommendation – come from what the model knows in general, not from this analysis. They may be right (they often are), but nothing in this run shows it. And a carrier of one *2 allele is usually called an intermediate metaboliser, not a poor one: exactly the kind of detail to check.</p></div>
+</div>
+
+<div class="q" data-q="g-q2" data-type="mcq">
+  <div class="q-text">What does approving each step guarantee?</div>
+  <div class="mcq"><label data-correct data-why="Yes – and only that. It protects your files from a command you would not have allowed."><input type="radio"> That nothing runs that you have not seen.</label><label data-why="Only if you can tell – the approval is as good as the person approving."><input type="radio"> That the commands are the right ones for the question.</label><label data-why="The report is written after the last step, and nobody approves it."><input type="radio"> That the report at the end is true.</label><label data-why="Nothing about approving makes it repeatable. That is chapter 4."><input type="radio"> That the analysis can be repeated.</label></div>
+</div>
+
+<h2 id="g-plan">2 · Plan first</h2>
+<div class="activity">
+  <div class="act-t">Agree on the route, then let it drive</div>
+  <ol class="steps">
+    <li data-task="g-plan-send" data-auto="agent:start mode=plan">Choose <b>Plan first</b> and send the same task. <button class="do ask" type="button" data-prompt="Find the variants of sample NA12878. Map the paired reads data/NA12878_R1.fastq and data/NA12878_R2.fastq to data/reference.fa, call the variants and save them as variants.vcf.gz (compressed and indexed). Then tell me the genotype at position 11616 of human_CYP2C19, and the evidence for it." data-tab="agent" data-mode="plan">do it for me</button> The agent answers with a plan and runs nothing yet.</li>
+    <li data-task="g-plan-change" data-auto="agent:plan choice=change">Read the plan as you would read a colleague’s. Then ask for one change – for example: <i>“Check the quality of the reads with fastp first, and map the filtered reads.”</i> or <i>“Use Bowtie 2 instead of minimap2.”</i> Press <b>Ask for changes</b>.</li>
+    <li data-task="g-plan-ok" data-auto="agent:plan choice=approve">When the plan is what you want, press <b>Approve the plan</b>. From here the agent works alone.</li>
+    <li data-task="g-plan-record" data-auto="editor:open path~-plan/RUN.md">When it has finished, open <b>The record (RUN.md)</b>. It has the plan, and under <i>What the agent did</i> every command. Did the agent do what it said it would?</li>
+  </ol>
+</div>
+
+<div class="q" data-q="g-q3">
+  <div class="q-text">Did the agent keep to the plan? Where did it depart from it – and did it tell you?</div>
+  <div class="q-model"><p>Look for departures of these kinds: a command fails and is repaired; an extra check is added; an option or a file name is not what the plan said; a step is quietly dropped. A good agent says so in its report – but the report is the agent’s own account. The record shows what happened whether the agent mentions it or not. A plan is a promise; the record is what was done.</p></div>
+</div>
+
+<h2 id="g-auto">3 · Autonomous – twice</h2>
+<div class="activity">
+  <div class="act-t">Let it run, and then let it run again</div>
+  <ol class="steps">
+    <li data-task="g-auto-1" data-check="runs:auto:1">Choose <b>Autonomous</b> and send the same task. <button class="do ask" type="button" data-prompt="Find the variants of sample NA12878. Map the paired reads data/NA12878_R1.fastq and data/NA12878_R2.fastq to data/reference.fa, call the variants and save them as variants.vcf.gz (compressed and indexed). Then tell me the genotype at position 11616 of human_CYP2C19, and the evidence for it." data-tab="agent" data-mode="auto">do it for me</button> Watch; you are not asked anything.</li>
+    <li data-task="g-auto-2" data-check="runs:auto:2">When it has finished, send <b>exactly the same task</b> again, again autonomous. <button class="do ask" type="button" data-prompt="Find the variants of sample NA12878. Map the paired reads data/NA12878_R1.fastq and data/NA12878_R2.fastq to data/reference.fa, call the variants and save them as variants.vcf.gz (compressed and indexed). Then tell me the genotype at position 11616 of human_CYP2C19, and the evidence for it." data-tab="agent" data-mode="auto">do it for me</button></li>
+    <li data-task="g-auto-cmp" data-auto="term:command line~run.json">You now have four runs of one task. Compare them. This line prints, for each run, the model that answered and the main commands that worked: <code>cd ~/runs &amp;&amp; for d in */; do echo &quot;== $d&quot;; jq -r &#x27;&quot;model: &quot; + (.models | join(&quot;, &quot;)), (.steps[].commands[] | select(.code == 0) | .cmd)&#x27; $d/run.json | grep -E &#x27;^(model|fastp|minimap2|bowtie2|bcftools (mpileup|call|filter|norm|view -[a-zA-Z]*[ie]))&#x27;; done</code> <button class="do showme" type="button" data-term="cd ~/runs &amp;&amp; for d in */; do echo &quot;== $d&quot;; jq -r &#x27;&quot;model: &quot; + (.models | join(&quot;, &quot;)), (.steps[].commands[] | select(.code == 0) | .cmd)&#x27; $d/run.json | grep -E &#x27;^(model|fastp|minimap2|bowtie2|bcftools (mpileup|call|filter|norm|view -[a-zA-Z]*[ie]))&#x27;; done">show me</button> <span class="small muted">(<code>jq</code> reads <code>run.json</code> – the record of a run in a form for programs – and <code>grep</code> keeps the lines that start with one of the main programs. For everything a run did, open its <code>RUN.md</code>.)</span></li>
+    <li data-task="g-auto-n" data-auto="term:command line~query">And this one prints the number of variants each run found, and what each found at the position: <code>cd ~/runs &amp;&amp; for d in */; do echo &quot;$d $(bcftools view -H $d/variants.vcf.gz | wc -l) variants, at 11616: $(bcftools query -f &#x27;%REF&gt;%ALT QUAL=%QUAL [%GT]&#x27; -r human_CYP2C19:11616 $d/variants.vcf.gz)&quot;; done</code> <button class="do showme" type="button" data-term="cd ~/runs &amp;&amp; for d in */; do echo &quot;$d $(bcftools view -H $d/variants.vcf.gz | wc -l) variants, at 11616: $(bcftools query -f &#x27;%REF&gt;%ALT QUAL=%QUAL [%GT]&#x27; -r human_CYP2C19:11616 $d/variants.vcf.gz)&quot;; done">show me</button></li>
+  </ol><p class='small muted'>Error messages and <code>0 variants</code>: the run has no <code>variants.vcf.gz</code>. Error messages and a number, but nothing after <code>at 11616:</code> – the file has no index (<code>bcftools index</code>). Both are results worth noticing.</p>
+</div>
+
+<div class="q" data-q="g-q4">
+  <div class="q-text">Same task, same data – and, if the <i>model:</i> lines agree, the same model. Were your runs the same? List the differences that could change the result.</div>
+  <div class="q-model"><p>Most likely not – compare with your neighbours, too. A model need not give the same answer twice, and the task leaves choices open: which mapper (minimap2 or Bowtie 2); the raw reads or the reads filtered by fastp; default settings or others; a filter on the variants or none; which checks. (When a model is busy or over its limit the page asks another one, so even the model can differ between your runs – the <i>model:</i> lines show it.) Those choices change the list of variants: with default settings minimap2 and bcftools give <b>60</b> variants (27 of them with QUAL of 30 or more), Bowtie 2 and bcftools <b>50</b>; after fastp it is 60 and 49. The answer to <i>your question</i> should be the same in all of them – G&gt;A, 0/1, with QUAL 222 from minimap2 alignments and 178 from Bowtie 2’s – because that position is well covered. A result that survives different reasonable analyses is a robust one; but you only know that because you compared. And if your runs happened to be identical: nothing guaranteed it.</p></div>
+</div>
+
+<div class="q" data-q="g-q5" data-type="mcq">
+  <div class="q-text">A methods section says: “Variants were called by an AI agent (model X), given the prompt ‘Find the variants of sample NA12878 …’.” Is the analysis described?</div>
+  <div class="mcq"><label data-why="You gave the same prompt several times. Did you get the same commands each time – and could you have known beforehand?"><input type="radio"> Yes: model and prompt are given, so anyone can repeat it.</label><label data-correct data-why="Yes. The prompt is worth reporting – but it describes what was asked, not what was done."><input type="radio"> No: the same prompt can lead to different commands each time. The analysis is the commands, options and versions that were actually run.</label><label data-why="It may, in many places – if you say so, and can show and check what was done."><input type="radio"> No, because AI must not be used for analysis.</label></div>
+</div>
+
+<h2 id="g-script">4 · Write a script</h2>
+<div class="activity">
+  <div class="act-t">Ask for the analysis, not for the answer</div>
+  <ol class="steps">
+    <li data-task="g-script-send" data-check="runs:script:1">Choose <b>Write a script</b> and send the same task once more. <button class="do ask" type="button" data-prompt="Find the variants of sample NA12878. Map the paired reads data/NA12878_R1.fastq and data/NA12878_R2.fastq to data/reference.fa, call the variants and save them as variants.vcf.gz (compressed and indexed). Then tell me the genotype at position 11616 of human_CYP2C19, and the evidence for it." data-tab="agent" data-mode="script">do it for me</button> The agent is now asked to write one script, <code>analysis.sh</code>, to run it, and to repair it until it works.</li>
+    <li data-task="g-script-read" data-auto="editor:open name=analysis.sh">Open <code>analysis.sh</code>: press <b>Open</b> next to its name on the run’s card (or find it in the <b>Files</b> tab under <code>runs</code>). Read it from top to bottom. Can you follow every step?</li>
+  </ol>
+</div>
+
+<div class="q" data-q="g-q6">
+  <div class="q-text">Name one thing in <code>analysis.sh</code> that you would change or check before you used it on other data.</div>
+  <div class="q-model"><p>Whatever you found – for example: file and sample names written into the commands, so that the script works for this sample only; a threshold (a minimum quality, a depth) that the agent chose without giving a reason; no test that the input files exist or that a step produced something; nothing that records the versions of the programs; an option you do not know and would look up with <code>--help</code>. The point of a script is that you <i>can</i> read and question all of this – a chat that ended with “the genotype is 0/1” gives you nothing to question.</p></div>
+</div>
+
+<h2 id="g-table">The four ways, side by side</h2>
+<table class="table compare">
+<tr><th></th><th>Who decides each step</th><th>What you must do</th><th>Use it when</th></tr>
+<tr><th>Approve each step</th><td>You, one step at a time</td><td>Read every command before it runs</td><td>the tools or the data are new to you; a command could destroy something</td></tr>
+<tr><th>Plan first</th><td>You approve the route; the agent drives</td><td>Judge the plan; afterwards check that it was kept</td><td>the approach matters more than each single command</td></tr>
+<tr><th>Autonomous</th><td>The agent</td><td>Check afterwards: the record and the results</td><td>routine work in a place where nothing can be damaged, and checking is cheap</td></tr>
+<tr><th>Write a script</th><td>The agent writes; the script does</td><td>Read the script; run it again</td><td>you will repeat, share or publish the analysis</td></tr>
+</table>
+
+<div class="callout warn">
+  <div class="co-t">Outside this page</div>
+  <p>Agent tools for the command line and for code editors have the same settings under other names: ask before each command, plan mode, run without asking. The difference is where they run. Here the agent works in a web page, in a folder of its own; what it changes anywhere else is put back. On your laptop or on a cluster an autonomous agent can delete or overwrite real data, and it will not always notice. So: keep raw data read-only, work in a copy or a container, keep your work under version control – and do not give an agent more access than the task needs.</p>
+</div>
+
+</section>
+
+<section class="chapter" id="repro" data-num="4" data-title="Make it repeatable" data-bench="terminal" hidden>
+  <h1>Make it reproducible</h1>
+  <div class="meta-row"><span class="pill time">≈ 25 min</span></div>
+  <p class="lede">The model that did your analysis will be replaced before long, and it might not write the same commands twice anyway. What can be kept is what was done: the data, the commands, the versions. This chapter turns one of your runs into an analysis that anyone can run again – and tests whether it really gives the same result.</p>
+
+<p>Three things make an analysis repeatable: the <b>data</b> (and a way to know it is the same data), the <b>commands</b> (as a script, not as a memory), and the <b>programs</b> (with their versions). The agent’s runs have left you all three – in pieces. Now you put them together and test them.</p>
+
+<div class="activity">
+  <div class="act-t">The record: what was done</div>
+  <ol class="steps">
+    <li data-task="r-record" data-auto="editor:open name=RUN.md">Choose the run you trust most. In the AI tab, on its card, press <b>The record (RUN.md)</b>. Find: the task as you gave it; the model; each command with its exit status; the programs and versions; the checksums of the input files.</li>
+  </ol>
+</div>
+
+<div class="q" data-q="r-q1">
+  <div class="q-text">What does RUN.md tell you that the agent’s report did not? And who wrote it?</div>
+  <div class="q-model"><p>Every command, also the ones that failed, with exit status and the end of what it printed; what you approved, changed or refused; the versions of the programs; the checksums of inputs and results; the model and the time. The report is the agent’s summary of its own work, and a summary leaves things out. RUN.md was written by the page, from what really ran – the agent cannot improve on it. Agent tools on your own computer keep such logs too (session transcripts). Keep them with the results: they are your lab notebook for work you did not do by hand.</p></div>
+</div>
+
+<div class="activity">
+  <div class="act-t">From the record to a script</div>
+  <ol class="steps">
+    <li data-task="r-script" data-auto="agent:script">On the same card press <b>Make a script from this run</b>. The page writes <code>rerun.sh</code>: the commands that worked, in the order they ran. A command that failed and left nothing behind is there as a comment – and so is any command that reached outside the run’s folder. A command that ended with an error status but did write a file is kept (<code>diff</code> ends with status 1 when two files differ: no mistake, and the next step may read its output). (A <i>Write a script</i> run has its script already, <code>analysis.sh</code>, and no such button: open that one, and tick this step yourself. If the agent did not write it, the card says so – and has the button.)</li>
+    <li data-task="r-tidy" data-auto="editor:save">Read the script. Take out what only looked at things (<code>ls</code>, <code>head</code>, <code>cat</code> …) and is not needed to make the result. Leave the comments that say what a step is for – or write better ones. Where the agent named its folder in full (<code>/home/student/runs/…</code>), the page has written <code>"$RUN_FOLDER"</code>: the folder the script runs in, set near the top. A line that begins with <code># left out</code> says why a command of the run is not in the script; a line that begins with <code># CHECK:</code> stands above a command that the page kept but could not check – read those first. The script stops at the first command that fails and at a variable that has no value (<code>set -eu</code>); the agent’s own commands ran without that. Where its run went on all the same – a <code>grep</code> that finds nothing inside a loop, a variable that was never set – the page has put <code>set +e</code> or <code>set +u</code> before the command, with the reason, and switched it on again after it: decide whether the analysis should go on there. A command that ended the way a script ends – an <code>exit</code> inside it, the agent’s own <code>set -e</code> – stands in a subshell, <code>( … )</code>, so that it ends alone, as it did in the run; the lines above it say so. Check, too, that no command reaches outside its folder (a path that starts with <code>~</code>, <code>/</code> or <code>..</code>, or a <code>cd</code> that leaves the folder): in the agent’s run the page put such changes back; when you run the script, nothing does. Save with <kbd>Ctrl</kbd>+<kbd>S</kbd>.</li>
+  </ol>
+</div>
+
+<div class="activity">
+  <div class="act-t">Does it repeat?</div>
+  <ol class="steps">
+    <li data-task="r-run1" data-auto="script:done code=0 path~/check1/">A script that works in the folder where everything already exists proves little. Test it in a new folder that has only the data – a fresh copy of the course data, not the files the agent has worked with – and the script. On the run’s card press <b>Go to its folder</b> and <kbd>Enter</kbd>; then: <code>mkdir -p ~/check1 &amp;&amp; cp -rf ~/data rerun.sh RUN.md ~/check1/ &amp;&amp; cd ~/check1 &amp;&amp; bash rerun.sh</code> <button class="do showme" type="button" data-term="mkdir -p ~/check1 &amp;&amp; cp -rf ~/data rerun.sh RUN.md ~/check1/ &amp;&amp; cd ~/check1 &amp;&amp; bash rerun.sh">show me</button><details class="alt"><summary>For a <i>Write a script</i> run</summary>Its script is called <code>analysis.sh</code>. This line copies it under the name <code>rerun.sh</code>, so that everything below is the same for you: <code>mkdir -p ~/check1 &amp;&amp; cp -rf ~/data RUN.md ~/check1/ &amp;&amp; cp -f analysis.sh ~/check1/rerun.sh &amp;&amp; cd ~/check1 &amp;&amp; bash rerun.sh</code> <button class="do showme" type="button" data-term="mkdir -p ~/check1 &amp;&amp; cp -rf ~/data RUN.md ~/check1/ &amp;&amp; cp -f analysis.sh ~/check1/rerun.sh &amp;&amp; cd ~/check1 &amp;&amp; bash rerun.sh">show me</button></details></li>
+    <li data-task="r-fix" data-auto="script:done code=0 path~/check1/">If the script stopped with an error: read the message, repair the script (<code>nano rerun.sh</code>) and run it again with <code>bash rerun.sh</code> – or ask the Chat. To start afresh instead, remove the test folder (<code>cd ~ &amp;&amp; rm -rf ~/check1</code>), go to the run’s folder again and repeat the line above.</li>
+    <li data-task="r-run2" data-check="exists:check2/variants.vcf.gz">Once more, in a second new folder: <code>mkdir -p ~/check2 &amp;&amp; cp -rf ~/data ~/check1/rerun.sh ~/check2/ &amp;&amp; cd ~/check2 &amp;&amp; bash rerun.sh</code> <button class="do showme" type="button" data-term="mkdir -p ~/check2 &amp;&amp; cp -rf ~/data ~/check1/rerun.sh ~/check2/ &amp;&amp; cd ~/check2 &amp;&amp; bash rerun.sh">show me</button></li>
+    <li data-task="r-md5" data-auto="term:command name=md5sum code=0">Are the two results the same file? <code>md5sum ~/check1/variants.vcf.gz ~/check2/variants.vcf.gz</code> <button class="do showme" type="button" data-term="md5sum ~/check1/variants.vcf.gz ~/check2/variants.vcf.gz">show me</button></li>
+    <li data-task="r-diff" data-auto="term:command line~diff">Not the same! Find the difference: unpack both and compare them line by line. <code>zcat ~/check1/variants.vcf.gz &gt; ~/v1.vcf; zcat ~/check2/variants.vcf.gz &gt; ~/v2.vcf; diff ~/v1.vcf ~/v2.vcf</code> <button class="do showme" type="button" data-term="zcat ~/check1/variants.vcf.gz &gt; ~/v1.vcf; zcat ~/check2/variants.vcf.gz &gt; ~/v2.vcf; diff ~/v1.vcf ~/v2.vcf">show me</button></li>
+    <li data-task="r-same" data-auto="term:command line~md5sum line~bcftools">Now compare what matters – the variants, without the header – for both test folders and for all the agent’s runs: <code>for d in ~/check1 ~/check2 ~/runs/*; do echo &quot;$(bcftools view -H $d/variants.vcf.gz | md5sum) $d&quot;; done</code> <button class="do showme" type="button" data-term="for d in ~/check1 ~/check2 ~/runs/*; do echo &quot;$(bcftools view -H $d/variants.vcf.gz | md5sum) $d&quot;; done">show me</button></li>
+  </ol>
+</div>
+
+<div class="q" data-q="r-q2">
+  <div class="q-text">Which line differs between the two files, and why?</div>
+  <div class="q-model"><p>A line of the header: <code>##bcftools_callCommand=call …; Date=…</code>. bcftools writes into the file when it was run. (If your script filters or converts the file with bcftools, there are more such lines.) One changed character gives another checksum, so two <code>.vcf.gz</code> files made at different times are not identical – although every variant in them is.</p></div>
+</div>
+
+<div class="q" data-q="r-q3">
+  <div class="q-text">So: did the script give “the same result” twice? What do you compare to decide – and what did the last command show about the agent’s runs?</div>
+  <div class="q-model"><p>Yes: the variant lines (<code>bcftools view -H</code>) have the same checksum in <code>check1</code> and <code>check2</code> – and the same as the run the script was made from. “Reproducible” needs a definition: here, the same variants with the same genotypes and qualities, not the same bytes in a file that holds a date. Say which you mean, and give the checksum of the thing you compare. The other runs of the agent show other checksums wherever the agent chose other commands: identical checksums mean the same variant list; different ones, a different list.</p></div>
+</div>
+
+<div class="activity">
+  <div class="act-t">Say what was done – the AI included</div>
+  <ol class="steps">
+    <li data-task="r-readme" data-auto="file:create name=README.md">A folder that someone else can use needs a note. Create this file in <code>~/check1</code> and fill in every <code>...</code> – from RUN.md and from what you did yourself.<div class="codefile" data-path="~/check1/README.md"><div class="cf-head"><span class="cf-name">~/check1/README.md</span><span class="grow"></span><button class="do" type="button" data-file-create="~/check1/README.md">Create this file</button><button class="btn small" type="button" data-copy-code="1">Copy</button></div><pre class="codeblock"># CYP2C19*2 in NA12878
+
+## Question
+Which genotype does the sample NA12878 have at CYP2C19*2
+(rs4244285; position 11,616 of the sequence human_CYP2C19)?
+
+## Answer
+Genotype:  ...
+Evidence:  QUAL ..., ... reads at the position, ... support G and ... support A
+           (bcftools view -H -r human_CYP2C19:11616 variants.vcf.gz)
+
+## How to repeat the analysis
+In a folder with data/ and rerun.sh:   bash rerun.sh
+The same result is:   bcftools view -H variants.vcf.gz | md5sum   -&gt;   ...
+(The .vcf.gz file itself differs from run to run: its header holds the date.)
+
+## Data (md5)
+d2b8ddb488975fa5ef18e6e59edb5681  data/NA12878_R1.fastq
+aee82e1b82bedb037208f5ff5b9ff34b  data/NA12878_R2.fastq
+d9155e00b786f74b0837f6a675483563  data/reference.fa
+
+## Programs
+...   (copy the list from RUN.md)
+WebAssembly builds, run in a web browser.
+
+## Use of AI
+Tool:            the AI agent of the practical &quot;AI agents for bioinformatics&quot;
+Model and date:  ...
+What the AI did: chose and ran the commands (see RUN.md, which the page wrote, not the AI)
+What I did:      ...   (for example: read every command; took out ...; ran the
+                 script twice in new folders; compared the variants; read the
+                 line for position 11,616 myself)</pre></div></li>
+    <li data-task="r-fill" data-check="has:check1/README.md|What I did:\s+(?!\.\.\.)\S">Fill it in and save. Under <b>Use of AI</b>, be exact about who did what: it protects you, and it tells the reader what was checked by a person.</li>
+    <li data-task="r-zip" data-auto="project:download root~/check1">Download the folder: data, script, record, results, note. <button class="do" type="button" data-download="~/check1|cyp2c19-na12878.zip">Download ~/check1 as a .zip</button> That file is your analysis.</li>
+  </ol>
+</div>
+
+<div class="q" data-q="r-q4">
+  <div class="q-text">A colleague opens your .zip two years from now. The model you used no longer exists. What can they still do – and what not?</div>
+  <div class="q-model"><p>They can read what was asked and what was done (RUN.md), check that the data is the same (the checksums), run <code>rerun.sh</code> with the same versions of the programs and get the same variants, and read which parts a person checked. (With minimap2 the checksum in your README comes out the same on another computer. Bowtie 2 places a few reads that fit two places equally well by a pseudo-random number, which can differ between computers: there, compare positions and genotypes.) They cannot have the same conversation with the agent again – and might not get the same commands if they could. That no longer matters: the analysis does not depend on the model any more. What it does depend on is the programs, and old versions are not always easy to get. That is why they are written down; in real projects an environment file or a container fixes them.</p></div>
+</div>
+
+<div class="q" data-q="r-q5" data-type="mcq">
+  <div class="q-text">Which sentence belongs in the methods of a report?</div>
+  <div class="mcq"><label data-why="This says who, not what. Nobody could repeat or check it."><input type="radio"> “The data was analysed by an AI agent.”</label><label data-why="The prompt alone does not define the analysis – the same prompt can lead to other commands each time. Compare your runs."><input type="radio"> “We asked the model: ‘Find the variants of sample NA12878 …’”</label><label data-correct data-why="Yes: what was done, with what; what the AI did; what people checked; and where to find the evidence."><input type="radio"> “Reads were mapped with minimap2 2.22 (-ax sr) and variants called with bcftools 1.10 (mpileup, call -mv). The commands were written by an AI agent (model, date) and checked by the authors; the script and the record of the agent’s run are in the supplement.”</label><label data-why="Journals, universities and funders increasingly ask for a statement on the use of AI. Leaving it out can count as misconduct – check your course’s rules."><input type="radio"> The same as before AI existed – how the commands were written is nobody’s business.</label></div>
+</div>
+
+<div class="export-row"><label class="name-field">Your name (for the file of answers): <input type="text" data-student-name placeholder="optional"></label><button class="btn primary" type="button" data-export-answers>Download my answers</button></div>
+
+</section>
+
+<section class="chapter" id="ref" data-num="R" data-title="Reference" data-bench="terminal" hidden>
+  <h1>Reference</h1>
+  <p class="lede">A checklist, the commands, the words, and what to do when something does not work.</p>
+
+<h2 id="x-check">Before you believe an agent</h2>
+<ul class="check-list">
+<li>Do I know the data well enough to notice a wrong answer? (chapter 1)</li>
+<li>Is each statement in the report backed by something a command printed?</li>
+<li>Have I looked at the result myself – the line, the count, the file – and not only at the report?</li>
+<li>Do I know what the agent decided for me: the program, the options, the filters?</li>
+<li>Is there a record of what was run, written by the tool and not by the model?</li>
+<li>Is there a script, and have I run it somewhere fresh?</li>
+<li>Have I said what the AI did and what I checked?</li>
+</ul>
+
+<h2 id="x-cmd">Commands of this practical</h2>
+<table class="table">
+<tr><td><code>fastp -i R1.fastq -I R2.fastq -o out1.fastq -O out2.fastq -h fastp.html -j fastp.json</code></td><td>quality control and filtering of paired reads</td></tr>
+<tr><td><code>minimap2 -ax sr ref.fa R1.fastq R2.fastq &gt; mapped.sam</code></td><td>map short paired reads</td></tr>
+<tr><td><code>bowtie2-build ref.fa ref</code> · <code>bowtie2 -x ref -1 R1.fastq -2 R2.fastq -S mapped.sam</code></td><td>the same with Bowtie 2: index first, then map</td></tr>
+<tr><td><code>samtools sort -o mapped.bam mapped.sam</code> · <code>samtools index mapped.bam</code></td><td>sort and index the alignments</td></tr>
+<tr><td><code>samtools flagstat mapped.bam</code></td><td>how many reads mapped</td></tr>
+<tr><td><code>bcftools mpileup -f ref.fa mapped.bam | bcftools call -mv -Oz -o variants.vcf.gz</code></td><td>call variants</td></tr>
+<tr><td><code>bcftools index variants.vcf.gz</code></td><td>index the variants (needed for <code>-r</code>)</td></tr>
+<tr><td><code>bcftools view -H -r human_CYP2C19:11616 variants.vcf.gz</code></td><td>the line for one position</td></tr>
+<tr><td><code>bcftools view -H variants.vcf.gz | wc -l</code></td><td>count the variants</td></tr>
+<tr><td><code>bcftools view -H variants.vcf.gz | md5sum</code></td><td>a checksum of the variants, without the header</td></tr>
+<tr><td><code>md5sum -c MD5SUMS</code></td><td>check files against a list of checksums</td></tr>
+<tr><td><code>bash script.sh</code></td><td>run a script; <code>set -euo pipefail</code> at its top stops it at the first error</td></tr>
+</table>
+<p class="small">Every program explains itself: <code>samtools --help</code>, <code>samtools view --help</code>, <code>bcftools call --help</code>, <code>fastp --help</code>. (Some commands of samtools and bcftools print their help and then end with an error status, as they do on Linux – the help is there all the same. One, <code>bcftools mpileup</code>, shows its help only when it is typed with nothing after it.) <code>help</code> lists what the terminal has.</p>
+
+<h2 id="x-words">Words</h2>
+<table class="table">
+<tr><th>Language model</th><td>A program that continues text. Asked a question, it writes a likely answer – from what it was trained on and from what is in front of it.</td></tr>
+<tr><th>Assistant</th><td>A language model you talk to. It writes; you act.</td></tr>
+<tr><th>Agent</th><td>A language model in a loop with tools – here it can run commands in the terminal and write text files. It acts, reads the result and acts again, until it decides it is done.</td></tr>
+<tr><th>Prompt</th><td>The text the model is given. The <b>system prompt</b> is the part you do not see: what the tool told the model about its job and its surroundings.</td></tr>
+<tr><th>Context</th><td>Everything the model can “see” at one moment: system prompt, your messages, its own earlier replies, outputs of commands. What is not in the context does not exist for the model.</td></tr>
+<tr><th>Hallucination</th><td>Text that looks right and is not backed by anything: an invented number, option, file or reference.</td></tr>
+<tr><th>Non-deterministic</th><td>The same prompt need not give the same answer twice.</td></tr>
+<tr><th>Provenance</th><td>Where a result comes from: which data, which commands, which programs, who or what ran them.</td></tr>
+<tr><th>Reproducible</th><td>Someone else, with the same data and the same instructions, gets the same result.</td></tr>
+</table>
+
+<h2 id="x-ai">A statement on the use of AI</h2>
+<p>Rules differ between courses, journals and employers – read yours. A useful statement answers four questions:</p>
+<table class="table">
+<tr><th>Which tool and model, and when?</th><td>for example: the agent of this practical; the model’s name as it stands in RUN.md; the date</td></tr>
+<tr><th>What did the AI do?</th><td>for example: chose and ran the commands for mapping and variant calling</td></tr>
+<tr><th>What did I do?</th><td>for example: set the task; read each command; ran the script again in a new folder; checked the genotype in the VCF file myself</td></tr>
+<tr><th>Where is the evidence?</th><td>for example: RUN.md (the record of the run), rerun.sh (the script)</td></tr>
+</table>
+<p class="small">The note you wrote in chapter 4 (<code>README.md</code>, <i>Use of AI</i>) is such a statement.</p>
+
+<h2 id="x-trouble">If something does not work</h2>
+<table class="table">
+<tr><th>“Too many requests” (429)</th><td>Every model that the page can ask is over its limit per minute. The agent waits (up to a minute and a half, three times at most) and goes on by itself; in the chat, wait a minute. If an agent’s run ends with this message, many people may be using the same key: give the task again a little later.</td></tr>
+<tr><th>“No requests are left for today”</th><td>Every model is over its limit per day for your key; the message says when the service takes requests again. Waiting does not help today, and a second key from the same Google project does not either (the limits are counted per project): work with a neighbour, or ask for another key.</td></tr>
+<tr><th>“Busy”, “high demand” (503)</th><td>The service is overloaded. The page asks other models by itself and names the one that answered. If a run ends with this message, every model was busy: wait a few minutes and give the task again.</td></tr>
+<tr><th>“… sent an empty reply”</th><td>A model sometimes ends a reply before it has begun. In the chat, ask again; the agent asks again by itself.</td></tr>
+<tr><th>The key is not accepted</th><td>Copy it again, without spaces, and check that the service chosen in the form is the one the key belongs to. An old Gemini key may no longer be accepted by Google: make a new one.</td></tr>
+<tr><th>A command never ends</th><td>Press <kbd>Ctrl</kbd>+<kbd>C</kbd> in the terminal; press it again to stop the program by force. The programs then start again. A file that a program wrote in the last seconds before may be lost, or come back as it was before – the terminal says which: make it again.</td></tr>
+<tr><th>The agent goes in circles</th><td>Press <b>Stop</b>. Its folder and the record stay. Start a new run, and say in the task what it should avoid.</td></tr>
+<tr><th>The page was reloaded</th><td>Your ticks, answers and files are still there. (A file that a program wrote in the last seconds before is not: the terminal names it.) An agent that was running cannot go on, and that run has no record – its folder holds a note instead: give the task again.</td></tr>
+<tr><th>“Your browser storage is full”</th><td>The browser gives a site only a few megabytes for text files, and other practicals of the same site share them. Keep what you have with <b>My answers → Save all my work to a file</b>; then make room: remove large text files you do not need (a SAM file, say: <code>rm mapped.sam</code>), or use <b>Start again</b> in a practical that you have finished.</td></tr>
+<tr><th>“This practical is open in another tab or window”</th><td>Work in one tab or window only. Two of them save to the same place, and each writes over what the other has saved. Close one.</td></tr>
+<tr><th>Start from scratch</th><td><b>My answers → Start again</b> clears everything in this browser.</td></tr>
+</table>
+
+<h2 id="x-data">The data</h2>
+<p>3,519 pairs of 76-base Illumina reads of the public reference sample NA12878 (exome sequencing, run SRR098401 of the 1000 Genomes Project), from the regions of <i>CYP2C19</i> and <i>CYP2C9</i>; and two pieces of the human reference genome hg19. Details: <code>cat ~/data/README.md</code> <button class="do showme" type="button" data-term="cat ~/data/README.md">show me</button></p>
+
+</section>
+<!--/CHAPTERS-->
+    </aside>
+
+    <div class="splitter" role="separator" aria-orientation="vertical" title="Drag to resize · double-click to reset"></div>
+
+    <section class="bench" aria-label="Workbench">
+      <div class="wb-tabs" role="tablist">
+        <button class="wb-tab on" type="button" role="tab" data-wb="terminal"><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>Terminal<span class="dot"></span></button>
+        <button class="wb-tab" type="button" role="tab" data-wb="editor"><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 4h6l2 2h8v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M9 13l2 2 4-4"/></svg>Files<span class="dot"></span></button>
+        <button class="wb-tab" type="button" role="tab" data-wb="assistant"><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.8 1.9 1.9.8-1.9.8L19 20.4l-.8-1.9-1.9-.8 1.9-.8z"/></svg>AI<span class="dot"></span></button>
+        <button class="bench-close" type="button" aria-label="Back to the instructions">✕ Instructions</button>
+      </div>
+      <div class="wb-body">
+        <div class="wb-pane" data-wb="terminal"><div id="termRoot"></div></div>
+        <div class="wb-pane" data-wb="editor" hidden><div id="edRoot"></div></div>
+        <div class="wb-pane" data-wb="assistant" hidden><div id="aiRoot"></div></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<button class="bench-fab" type="button" aria-label="Open the workbench"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>Workbench</button>
+<noscript><p style="padding:20px">This page needs JavaScript.</p></noscript>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/icons.js"></script>
+<script src="assets/js/vfs.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/shell-lang.js"></script>
+<script src="assets/js/tools-wasm.js"></script>
+<script src="assets/js/shell-extra.js"></script>
+<script src="assets/js/terminal.js"></script>
+<script src="assets/vendor/codemirror/codemirror.js"></script>
+<script src="assets/vendor/codemirror/shell.js"></script>
+<script src="assets/vendor/codemirror/markdown.js"></script>
+<script src="assets/vendor/codemirror/matchbrackets.js"></script>
+<script src="assets/vendor/codemirror/closebrackets.js"></script>
+<script src="assets/vendor/codemirror/comment.js"></script>
+<script src="assets/js/project.js"></script>
+<script src="assets/js/editor.js"></script>
+<script src="assets/js/assistant.js"></script>
+<script src="assets/js/page-agents.js"></script>
+<script src="assets/js/tutorial.js"></script>
+</body>
+</html>
