@@ -1,0 +1,74 @@
+[
+ {
+  "package": "bowtie2-2.4.2",
+  "licence": "GPL-3.0",
+  "file": "sources/bowtie2-2.4.2.tar.xz",
+  "sha256": "830feec726d43483d5001c79e339681eab4feb63b52de6b7d710258abfa2ce0e",
+  "bytes": 8810356,
+  "upstream": "https://github.com/BenLangmead/bowtie2/tree/v2.4.2",
+  "origin": "git archive --prefix=bowtie2-2.4.2/ v2.4.2 | xz, from a clone of https://github.com/BenLangmead/bowtie2.git (tag v2.4.2, commit 8be3a210eb488610072de14449eccf9b041d8930), 2026-10-02"
+ },
+ {
+  "package": "coreutils-8.32",
+  "licence": "GPL-3.0-or-later",
+  "file": "sources/coreutils-8.32.tar.xz",
+  "sha256": "4458d8de7849df44ccab15e16b1548b285224dbba5f08fac070c1c0e0bcc4cfa",
+  "bytes": 5547836,
+  "upstream": "https://ftp.gnu.org/gnu/coreutils/coreutils-8.32.tar.xz",
+  "origin": "official release archive, retrieved 2026-09-30"
+ },
+ {
+  "package": "diffutils-3.10",
+  "licence": "GPL-3.0-or-later",
+  "file": "sources/diffutils-3.10.tar.xz",
+  "sha256": "90e5e93cc724e4ebe12ede80df1634063c7a855692685919bfe60b556c9bd09e",
+  "bytes": 1624240,
+  "upstream": "https://ftp.gnu.org/gnu/diffutils/diffutils-3.10.tar.xz",
+  "origin": "official release archive, retrieved 2026-10-03"
+ },
+ {
+  "package": "gawk-5.1.0",
+  "licence": "GPL-3.0-or-later",
+  "file": "sources/gawk-5.1.0.tar.xz",
+  "sha256": "cf5fea4ac5665fd5171af4716baab2effc76306a9572988d5ba1078f196382bd",
+  "bytes": 3154564,
+  "upstream": "https://ftp.gnu.org/gnu/gawk/gawk-5.1.0.tar.xz",
+  "origin": "official release archive, retrieved 2026-09-30"
+ },
+ {
+  "package": "grep-3.7",
+  "licence": "GPL-3.0-or-later",
+  "file": "sources/grep-3.7.tar.xz",
+  "sha256": "5c10da312460aec721984d5d83246d24520ec438dd48d7ab5a05dbc0d6d6823c",
+  "bytes": 1641196,
+  "upstream": "https://ftp.gnu.org/gnu/grep/grep-3.7.tar.xz",
+  "origin": "official release archive, retrieved 2026-09-30"
+ },
+ {
+  "package": "grep-3.11",
+  "licence": "GPL-3.0-or-later",
+  "file": "sources/grep-3.11.tar.xz",
+  "sha256": "1db2aedde89d0dea42b16d9528f894c8d15dae4e190b59aecc78f5a951276eab",
+  "bytes": 1703776,
+  "upstream": "https://ftp.gnu.org/gnu/grep/grep-3.11.tar.xz",
+  "origin": "official release archive, retrieved 2026-10-05"
+ },
+ {
+  "package": "pcre2-10.42",
+  "licence": "BSD-3-Clause WITH PCRE2-exception",
+  "file": "sources/pcre2-10.42.tar.bz2",
+  "sha256": "8d36cd8cb6ea2a4c2bb358ff6411b0c788633a2a45dabbf1aeb4b701d1b5e840",
+  "bytes": 1799866,
+  "upstream": "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.42/pcre2-10.42.tar.bz2",
+  "origin": "official release archive, retrieved 2026-10-05"
+ },
+ {
+  "package": "sed-4.8",
+  "licence": "GPL-3.0-or-later",
+  "file": "sources/sed-4.8.tar.xz",
+  "sha256": "f79b0cfea71b37a8eeec8490db6c5f7ae7719c35587f21edb0617f370eeff633",
+  "bytes": 1348048,
+  "upstream": "https://ftp.gnu.org/gnu/sed/sed-4.8.tar.xz",
+  "origin": "official release archive, retrieved 2026-09-30"
+ }
+]

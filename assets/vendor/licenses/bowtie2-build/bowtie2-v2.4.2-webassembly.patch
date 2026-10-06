@@ -1,0 +1,129 @@
+diff --git a/Makefile b/Makefile
+index 890cc3f..9d05a25 100644
+--- a/Makefile
++++ b/Makefile
+@@ -240,6 +240,27 @@ FILE_FLAGS     := -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
+ DEBUG_DEFS     = -DCOMPILER_OPTIONS="\"$(DEBUG_FLAGS) $(CXXFLAGS)\""
+ RELEASE_DEFS   = -DCOMPILER_OPTIONS="\"$(RELEASE_FLAGS) $(CXXFLAGS)\""
+ 
++# Compiling to WebAssembly with Emscripten (adapted from the biowasm recipe for Bowtie 2):
++ifeq (em++,$(shell basename $(CXX)))
++  BITS := 64
++  # No x86 -msse2 flag here: Bowtie 2's SSE2 code (sse_wrap.h includes emmintrin.h) is compiled
++  # to WebAssembly SIMD by Emscripten's own emmintrin.h, switched on by -msimd128 -msse2 below.
++  # (The next two flags are from the biowasm recipe, which used SIMDe; they have no effect here.)
++  SSE_FLAG :=
++  CXXFLAGS += -fopenmp-simd
++  CPPFLAGS += -Ithird_party/simde
++  # Remove "-g3" debug flag to reduce .wasm size
++  RELEASE_FLAGS := -O3 $(SSE_FLAG) -funroll-loops
++  # WebAssembly exceptions and WebAssembly SIMD
++  FILE_FLAGS += -fwasm-exceptions -msimd128 -msse2
++  # No memory-mapped files and no shared memory in a browser
++  BOWTIE_MM :=
++  BOWTIE_SHARED_MEM :=
++endif
++
++
++COMPILER_NOTE ?= $(shell $(CXX) -v 2>&1 | tail -1)
++
+ BOWTIE2_BIN_LIST := bowtie2-build-s \
+   bowtie2-build-l \
+   bowtie2-align-s \
+@@ -325,7 +346,7 @@ DEFS := -fno-strict-aliasing \
+   -DBOWTIE2_VERSION="\"`cat BOWTIE2_VERSION`\"" \
+   -DBUILD_HOST="\"$${HOSTNAME:-`hostname`}\"" \
+   -DBUILD_TIME="\"`date -u`\"" \
+-  -DCOMPILER_VERSION="\"`$(CXX) -v 2>&1 | tail -1`\"" \
++  -DCOMPILER_VERSION="\"$(COMPILER_NOTE)\"" \
+   $(FILE_FLAGS) \
+   $(PREF_DEF) \
+   $(MM_DEF) \
+@@ -344,11 +365,11 @@ endif
+ 
+ bowtie2-build-s-sanitized bowtie2-build-s: bt2_build.cpp $(SHARED_CPPS) $(HEADERS)
+ 	$(CXX) $(RELEASE_FLAGS) $(RELEASE_DEFS) $(CXXFLAGS) \
+-		$(DEFS) -DBOWTIE2 $(NOASSERT_FLAGS) -Wall \
++		$(DEFS) -DBOWTIE2 $(NOASSERT_FLAGS) -w \
+ 		$(CPPFLAGS) \
+-		-o $@ $< \
++		-o $(WASM_OUT)/$@.js $< \
+ 		$(SHARED_CPPS) $(BUILD_CPPS_MAIN) \
+-		$(LDFLAGS) $(LDLIBS)
++		$(LDFLAGS) $(LDLIBS) $(WASM_FLAGS)
+ 
+ bowtie2-build-l-sanitized bowtie2-build-l: bt2_build.cpp $(SHARED_CPPS) $(HEADERS)
+ 	$(CXX) $(RELEASE_FLAGS) $(RELEASE_DEFS) $(CXXFLAGS) \
+@@ -380,11 +401,11 @@ bowtie2-build-l-debug: bt2_build.cpp $(SHARED_CPPS) $(HEADERS)
+ 
+ bowtie2-align-s-sanitized bowtie2-align-s: bt2_search.cpp $(SEARCH_CPPS) $(SHARED_CPPS) $(HEADERS) $(SEARCH_FRAGMENTS)
+ 	$(CXX) $(RELEASE_FLAGS) $(RELEASE_DEFS) $(CXXFLAGS) \
+-		$(DEFS) -DBOWTIE2 $(NOASSERT_FLAGS) -Wall \
++		$(DEFS) -DBOWTIE2 $(NOASSERT_FLAGS) -w \
+ 		$(CPPFLAGS) \
+-		-o $@ $< \
++		-o $(WASM_OUT)/$@.js $< \
+ 		$(SHARED_CPPS) $(SEARCH_CPPS_MAIN) \
+-		$(LDFLAGS) $(LDLIBS)
++		$(LDFLAGS) $(LDLIBS) $(WASM_FLAGS)
+ 
+ bowtie2-align-l-sanitized bowtie2-align-l: bt2_search.cpp $(SEARCH_CPPS) $(SHARED_CPPS) $(HEADERS) $(SEARCH_FRAGMENTS)
+ 	$(CXX) $(RELEASE_FLAGS) $(RELEASE_DEFS) $(CXXFLAGS) \
+diff --git a/bt2_build.cpp b/bt2_build.cpp
+index 6d682c4..e41e627 100644
+--- a/bt2_build.cpp
++++ b/bt2_build.cpp
+@@ -311,6 +311,13 @@ static bool parseOptions(int argc, const char **argv) {
+ 			case ARG_NTOA: nsToAs = true; break;
+ 			case ARG_THREADS:
+ 				nthreads = parseNumber<int>(0, "--threads arg must be at least 1");
++#ifdef __EMSCRIPTEN__
++				// WebAssembly build: there are no threads, and waiting for one would never end
++				if(nthreads > 1) {
++					cerr << "Note: this WebAssembly build of bowtie2-build has no threads; using 1 thread." << endl;
++					nthreads = 1;
++				}
++#endif
+ 				break;
+ 			case 'a': autoMem = false; break;
+ 			case 'q': verbose = false; break;
+diff --git a/bt2_search.cpp b/bt2_search.cpp
+index 48680f8..94e3fb9 100644
+--- a/bt2_search.cpp
++++ b/bt2_search.cpp
+@@ -4786,6 +4786,7 @@ static void multiseedSearch(
+ 				threads.push_back(new tthread::thread(multiseedSearchWorker_2p5, (void*)&tids.back()));
+ 			} else {
+ 				threads.push_back(new tthread::thread(multiseedSearchWorker, (void*)&tids.back()));
++				multiseedSearchWorker( (void*)&tids.back() );
+ 			}
+ #endif
+ 		}
+@@ -5144,6 +5145,7 @@ int bowtie(int argc, const char **argv) {
+ 		// Reset all global state, including getopt state
+ 		opterr = optind = 1;
+ 		resetOptions();
++		argstr = "";
+ 		for(int i = 0; i < argc; i++) {
+ 			argstr += argv[i];
+ 			if(i < argc-1) argstr += " ";
+diff --git a/pat.cpp b/pat.cpp
+index 1380534..ae59e37 100644
+--- a/pat.cpp
++++ b/pat.cpp
+@@ -494,6 +494,15 @@ void CFilePatternSource::open() {
+ 			}
+ 
+ 			is_fifo = S_ISFIFO(st.st_mode) != 0;
++#endif
++#ifdef __EMSCRIPTEN__
++			// WebAssembly build: this C library's fdopen() takes the descriptor -1 of a file that could not
++			// be opened without complaint (glibc returns NULL). Without this check a read file that is not
++			// there counted as an empty one ("0 reads", exit status 0) instead of "Could not open read file".
++			if (fd < 0) {
++				is_fifo = false;
++				fp_ = NULL;
++			} else
+ #endif
+ 			if (pp_.format != BAM && (is_fifo || is_gzipped_file(fd))) {
+ 				zfp_ = gzdopen(fd, "r");
