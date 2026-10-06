@@ -1,0 +1,11 @@
+seqtk 1.4
+Licence: MIT (LICENSE in this folder)
+Upstream source: https://github.com/lh3/seqtk/tree/v1.4
+WebAssembly build: Biowasm (https://biowasm.com/), downloaded from
+  https://biowasm.com/cdn/v3/seqtk/1.4/ on 2026-10-01
+Build recipes: https://github.com/biowasm/biowasm (a pinned copy is in ../../../licenses/biowasm-build/)
+
+Local change to the JavaScript loader: exit(status) is recorded as Module.__exitStatus, so that the
+terminal of the practical keeps the exit status of a failed command.
+Modified file: seqtk.js
+seqtk.wasm is unmodified.

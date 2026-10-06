@@ -1,0 +1,16 @@
+jq 1.7
+Licence: MIT; its documentation CC BY 3.0; parts under other permissive licences (COPYING in this folder).
+  This build contains the regular-expression library Oniguruma, which jq brings with it
+  (2-clause BSD licence: ONIGURUMA-COPYING in this folder; https://github.com/kkos/oniguruma).
+Upstream source: https://github.com/jqlang/jq/tree/jq-1.7
+WebAssembly build: Biowasm (https://biowasm.com/), downloaded from
+  https://biowasm.com/cdn/v3/jq/1.7/ on 2026-10-01
+Build recipes: https://github.com/biowasm/biowasm (a pinned copy is in ../../../licenses/biowasm-build/)
+
+Local change to the JavaScript loader: exit(status) is recorded as Module.__exitStatus, so that the
+terminal of the practical keeps the exit status of a failed command.
+Modified file: jq.js
+jq.wasm is unmodified.
+
+This build does not know its own version number (jq --version prints "jq-"); the terminal of the
+practical answers jq --version itself, with "jq-1.7".
