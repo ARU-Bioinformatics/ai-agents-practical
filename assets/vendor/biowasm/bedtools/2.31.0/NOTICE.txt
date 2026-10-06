@@ -1,0 +1,11 @@
+bedtools 2.31.0
+Licence: MIT (LICENSE in this folder)
+Upstream source: https://github.com/arq5x/bedtools2/tree/v2.31.0
+WebAssembly build: Biowasm (https://biowasm.com/), downloaded from
+  https://biowasm.com/cdn/v3/bedtools/2.31.0/ on 2026-10-01
+Build recipes: https://github.com/biowasm/biowasm (a pinned copy is in ../../../licenses/biowasm-build/)
+
+Local change to the JavaScript loader: exit(status) is recorded as Module.__exitStatus, so that the
+terminal of the practical keeps the exit status of a failed command.
+Modified file: bedtools.js
+bedtools.wasm and bedtools.data are unmodified.

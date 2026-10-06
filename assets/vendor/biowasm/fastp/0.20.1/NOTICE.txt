@@ -1,0 +1,16 @@
+fastp 0.20.1
+Licence: MIT (LICENSE in this folder)
+Upstream source: https://github.com/OpenGene/fastp/tree/v0.20.1
+WebAssembly build: Biowasm (https://biowasm.com/), downloaded from
+  https://biowasm.com/cdn/v3/fastp/0.20.1/ on 2026-10-01
+Build recipes: https://github.com/biowasm/biowasm (a pinned copy is in ../../../licenses/biowasm-build/)
+
+Local change to the JavaScript loader: exit(status) is recorded as Module.__exitStatus, so that the
+terminal of the practical keeps the exit status of a failed command.
+Modified file: fastp.js
+fastp.wasm and fastp.data are unmodified.
+
+Known difference from a native 64-bit build of the same version: the reads that fastp writes and
+its filtering numbers are identical (checked with -w 1); the estimated duplication rate differs
+slightly (7.16 % here, 6.98 % native for the course data). The estimate comes from a hash table,
+and this is a 32-bit build.
